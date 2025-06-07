@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IPL Score Predictor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        h1 {
+            color: #1e3799;
+            text-align: center;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        form {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2f3640;
+            font-weight: 500;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #dcdde1;
+            border-radius: 5px;
+            font-size: 16px;
+            color: #2f3640;
+        }
+        .search-container {
+            margin-bottom: 20px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #dcdde1;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #2f3640;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #1e3799;
+            box-shadow: 0 0 5px rgba(30,55,153,0.2);
+        }
+        select:focus {
+            outline: none;
+            border-color: #1e3799;
+            box-shadow: 0 0 5px rgba(30,55,153,0.2);
+        }
+        input[type="submit"] {
+            background-color: #1e3799;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        input[type="submit"]:hover {
+            background-color: #0c2461;
+        }
+        h2 {
+            text-align: center;
+            color: #2f3640;
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .error {
+            color: #e84118;
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background: #fff3f3;
+            border-radius: 5px;
+            border: 1px solid #ffa4a4;
+        }
+    </style>
+</head>
+<body>
+    <h1>Predict IPL Score</h1>
+    <form method="POST">
+        <label for="venue">Venue:</label>
+        <select name="venue" id="venue" required onchange="updateTeamsAndPlayers()">
+            <option value="">Select Venue</option>
+            {% for venue in venues %}
+                <option value="{{ venue }}" {% if request.form.get('venue') == venue %}selected{% endif %}>{{ venue }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="bat_team">Batting Team:</label>
+        <select name="bat_team" id="bat_team" required>
+            <option value="">Select Batting Team</option>
+            {% for team in batting_teams %}
+                <option value="{{ team }}" {% if request.form.get('bat_team') == team %}selected{% endif %}>{{ team }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="bowl_team">Bowling Team:</label>
+        <select name="bowl_team" id="bowl_team" required>
+            <option value="">Select Bowling Team</option>
+            {% for team in bowling_teams %}
+                <option value="{{ team }}" {% if request.form.get('bowl_team') == team %}selected{% endif %}>{{ team }}</option>
+            {% endfor %}
+        </select>
+
+        <div class="search-container">
+            <label for="striker">Striker:</label>
+            <input type="text" id="striker-search" placeholder="Search striker..." class="search-input">
+            <select name="striker" id="striker" required>
+                <option value="">Select Striker</option>
+                {% for player in strikers %}
+                    <option value="{{ player }}" {% if request.form.get('striker') == player %}selected{% endif %}>{{ player }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="search-container">
+            <label for="bowler">Bowler:</label>
+            <input type="text" id="bowler-search" placeholder="Search bowler..." class="search-input">
+            <select name="bowler" id="bowler" required>
+                <option value="">Select Bowler</option>
+                {% for player in bowlers %}
+                    <option value="{{ player }}" {% if request.form.get('bowler') == player %}selected{% endif %}>{{ player }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <input type="submit" value="Predict Score">
+    </form>
+
+    {% if prediction %}
+        <h2>Predicted Score: {{ prediction }}</h2>
+    {% endif %}
+
+    {% if error %}
+        <p class="error">Error: {{ error }}</p>
+    {% endif %}
+
+    <script>
+        function updateTeamsAndPlayers() {
+            const venue = document.getElementById('venue').value;
+            if (!venue) {
+                resetSelects();
+                return;
+            }
+            
+            fetch(`/get_teams_and_players?venue=${venue}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateSelect('bat_team', data.batting_teams);
+                    updateSelect('bowl_team', data.bowling_teams);
+                    updateSelect('striker', data.strikers);
+                    updateSelect('bowler', data.bowlers);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updateSelect(selectId, options) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = `<option value="">Select ${selectId.replace('_', ' ').charAt(0).toUpperCase() + selectId.slice(1)}</option>`;
+            options.forEach(option => {
+                select.innerHTML += `<option value="${option}">${option}</option>`;
+            });
+        }
+
+        function resetSelects() {
+            ['bat_team', 'bowl_team', 'striker', 'bowler'].forEach(id => {
+                const select = document.getElementById(id);
+                select.innerHTML = `<option value="">Select ${id.replace('_', ' ').charAt(0).toUpperCase() + id.slice(1)}</option>`;
+            });
+        }
+
+        // Add search functionality for striker and bowler
+        function setupSearch(searchId, selectId) {
+            const searchInput = document.getElementById(searchId);
+            const select = document.getElementById(selectId);
+            const options = Array.from(select.options);
+
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const filteredOptions = options.filter(option => 
+                    option.text.toLowerCase().includes(searchTerm)
+                );
+
+                select.innerHTML = '';
+                filteredOptions.forEach(option => select.add(option.cloneNode(true)));
+
+                if (filteredOptions.length === 0) {
+                    const noResults = document.createElement('option');
+                    noResults.text = 'No matches found';
+                    noResults.disabled = true;
+                    select.add(noResults);
+                }
+            });
+        }
+
+        // Initialize search functionality
+        setupSearch('striker-search', 'striker');
+        setupSearch('bowler-search', 'bowler');
+    </script>
+</body>
+</html>
